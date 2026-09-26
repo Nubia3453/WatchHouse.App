@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Watchhouse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">watchhouse<span class="dot">.</span></div>
+  <div class="header-actions">
+    <input type="text" class="search-input" id="searchInput" placeholder="Search your playlist" />
+    <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">⚙</button>
+  </div>
+</header>
+
+<div class="hero">
+  <h1>Your playlist, played back like a proper picture house.</h1>
+  <div class="rule"></div>
+  <p id="heroSub">Everything below streams straight from your own YouTube playlist — click anything to watch it full screen, right here.</p>
+</div>
+
+<main id="main">
+  <div class="loading-msg" id="loadingMsg" style="display:none;">Loading your playlist…</div>
+  <div id="shelvesRoot"></div>
+</main>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="settings-panel">
+    <h2>Connect your playlist</h2>
+    <p class="sub">This is a one-time step. Your key and playlist ID are stored only in this browser — nothing is sent anywhere except YouTube's own API.</p>
+    <div class="field">
+      <label for="apiKeyInput">YouTube Data API key</label>
+      <input type="text" id="apiKeyInput" placeholder="AIza…" autocomplete="off" />
+      <div class="hint">Free from <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud Console</a> — enable "YouTube Data API v3", then create an API key under Credentials.</div>
+    </div>
+    <div class="field">
+      <label for="playlistIdInput">Playlist ID</label>
+      <input type="text" id="playlistIdInput" placeholder="PL…" autocomplete="off" />
+      <div class="hint">The part after <code>list=</code> in your playlist's URL.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="settingsCancel">Cancel</button>
+      <button class="btn-primary" id="settingsSave">Save & load</button>
+    </div>
+    <div class="settings-error" id="settingsError">Couldn't load that playlist — double-check the key and ID.</div>
+  </div>
+</div>
+
+<!-- Player overlay -->
+<div class="player-overlay" id="playerOverlay">
+  <div class="player-bar">
+    <div class="p-title" id="playerTitle"></div>
+    <button class="icon-btn" id="closePlayerBtn" aria-label="Close">✕</button>
+  </div>
+  <div class="player-frame-wrap" id="playerFrameWrap"></div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

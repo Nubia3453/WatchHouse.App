@@ -37,7 +37,7 @@
   const DEFAULT_PLAYLIST_ID = 'PLhspAmY9B1Rv7c1Xe7nfS0UWcSQ5OW_FT';
 
   const GENRE_OPTIONS = ['Action', 'Comedy', 'Drama', 'Horror', 'Thriller', 'Romance', 'Sci-Fi', 'Documentary', 'Animation', 'Other'];
-  const LANGUAGE_OPTIONS = ['English', 'Hindi', 'Spanish', 'French', 'Korean', 'Japanese', 'Other'];
+  const LANGUAGE_OPTIONS = ['English', 'Hindi', 'Spanish', 'French', 'Korean', 'Japanese', 'Marathi', 'Other'];
   const MOOD_OPTIONS = ['Feel-good', 'Intense', 'Relaxing', 'Thought-provoking', 'Nostalgic', 'Scary', 'Other'];
 
   let allVideos = [];

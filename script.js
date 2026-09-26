@@ -1,5 +1,5 @@
 (function () {
-  const shelvesRoot = document.getElementById('shelvesRoot');
+  const contentRoot = document.getElementById('contentRoot');
   const loadingMsg = document.getElementById('loadingMsg');
   const heroSub = document.getElementById('heroSub');
   const searchInput = document.getElementById('searchInput');
@@ -18,9 +18,31 @@
   const playerTitle = document.getElementById('playerTitle');
   const closePlayerBtn = document.getElementById('closePlayerBtn');
 
+  const tagModal = document.getElementById('tagModal');
+  const tagModalTitle = document.getElementById('tagModalTitle');
+  const tagGenreSelect = document.getElementById('tagGenreSelect');
+  const tagLanguageSelect = document.getElementById('tagLanguageSelect');
+  const tagMoodSelect = document.getElementById('tagMoodSelect');
+  const tagGenreCustom = document.getElementById('tagGenreCustom');
+  const tagLanguageCustom = document.getElementById('tagLanguageCustom');
+  const tagMoodCustom = document.getElementById('tagMoodCustom');
+  const tagCancel = document.getElementById('tagCancel');
+  const tagSave = document.getElementById('tagSave');
+
+  const genreFilter = document.getElementById('genreFilter');
+  const languageFilter = document.getElementById('languageFilter');
+  const moodFilter = document.getElementById('moodFilter');
+  const filterHint = document.getElementById('filterHint');
+
   const DEFAULT_PLAYLIST_ID = 'PLhspAmY9B1Rv7c1Xe7nfS0UWcSQ5OW_FT';
 
+  const GENRE_OPTIONS = ['Action', 'Comedy', 'Drama', 'Horror', 'Thriller', 'Romance', 'Sci-Fi', 'Documentary', 'Animation', 'Other'];
+  const LANGUAGE_OPTIONS = ['English', 'Hindi', 'Spanish', 'French', 'Korean', 'Japanese', 'Other'];
+  const MOOD_OPTIONS = ['Feel-good', 'Intense', 'Relaxing', 'Thought-provoking', 'Nostalgic', 'Scary', 'Other'];
+
   let allVideos = [];
+  let tagsById = {};
+  let currentTagVideoId = null;
   let lastErrorMessage = '';
 
   function safeGet(key) {
@@ -30,6 +52,12 @@
     try { localStorage.setItem(key, val); } catch (e) {}
   }
 
+  function loadTags() {
+    try { tagsById = JSON.parse(safeGet('wh_tags') || '{}'); } catch (e) { tagsById = {}; }
+  }
+  function saveTags() { safeSet('wh_tags', JSON.stringify(tagsById)); }
+
+  // ---------- Settings modal ----------
   function openSettings() {
     apiKeyInput.value = safeGet('wh_api_key') || '';
     playlistIdInput.value = safeGet('wh_playlist_id') || DEFAULT_PLAYLIST_ID;
@@ -61,39 +89,223 @@
     }
   });
 
+  // ---------- Tag editor modal ----------
+  function fillSelect(select, options, currentValue) {
+    select.innerHTML = '';
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '— none —';
+    select.appendChild(blank);
+    options.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.textContent = opt;
+      select.appendChild(o);
+    });
+    if (currentValue && options.includes(currentValue)) {
+      select.value = currentValue;
+    } else if (currentValue) {
+      select.value = 'Other';
+    } else {
+      select.value = '';
+    }
+  }
+
+  function wireCustomToggle(select, customInput, currentValue) {
+    const allKnown = GENRE_OPTIONS.concat(LANGUAGE_OPTIONS, MOOD_OPTIONS);
+    const sync = () => {
+      if (select.value === 'Other') {
+        customInput.style.display = 'block';
+        customInput.value = (currentValue && !allKnown.includes(currentValue)) ? currentValue : '';
+      } else {
+        customInput.style.display = 'none';
+      }
+    };
+    select.onchange = sync;
+    sync();
+  }
+
+  function openTagEditor(video) {
+    currentTagVideoId = video.id;
+    tagModalTitle.textContent = video.title;
+    const existing = tagsById[video.id] || {};
+    fillSelect(tagGenreSelect, GENRE_OPTIONS, existing.genre);
+    fillSelect(tagLanguageSelect, LANGUAGE_OPTIONS, existing.language);
+    fillSelect(tagMoodSelect, MOOD_OPTIONS, existing.mood);
+    wireCustomToggle(tagGenreSelect, tagGenreCustom, existing.genre);
+    wireCustomToggle(tagLanguageSelect, tagLanguageCustom, existing.language);
+    wireCustomToggle(tagMoodSelect, tagMoodCustom, existing.mood);
+    tagModal.classList.add('open');
+  }
+  function closeTagEditor() { tagModal.classList.remove('open'); currentTagVideoId = null; }
+
+  tagCancel.addEventListener('click', closeTagEditor);
+  tagModal.addEventListener('click', (e) => { if (e.target === tagModal) closeTagEditor(); });
+
+  function resolveValue(select, customInput) {
+    if (select.value === 'Other') return customInput.value.trim();
+    return select.value;
+  }
+
+  tagSave.addEventListener('click', () => {
+    if (!currentTagVideoId) return;
+    const genre = resolveValue(tagGenreSelect, tagGenreCustom);
+    const language = resolveValue(tagLanguageSelect, tagLanguageCustom);
+    const mood = resolveValue(tagMoodSelect, tagMoodCustom);
+    const entry = {};
+    if (genre) entry.genre = genre;
+    if (language) entry.language = language;
+    if (mood) entry.mood = mood;
+    if (Object.keys(entry).length) {
+      tagsById[currentTagVideoId] = entry;
+    } else {
+      delete tagsById[currentTagVideoId];
+    }
+    saveTags();
+    closeTagEditor();
+    rebuildFilterOptions();
+    render();
+  });
+
+  // ---------- Filters ----------
+  function rebuildFilterOptions() {
+    const genres = new Set(), languages = new Set(), moods = new Set();
+    Object.values(tagsById).forEach(t => {
+      if (t.genre) genres.add(t.genre);
+      if (t.language) languages.add(t.language);
+      if (t.mood) moods.add(t.mood);
+    });
+    const fill = (select, values, label) => {
+      const current = select.value;
+      select.innerHTML = `<option value="">${label}: All</option>`;
+      Array.from(values).sort().forEach(v => {
+        const o = document.createElement('option');
+        o.value = v;
+        o.textContent = v;
+        select.appendChild(o);
+      });
+      if (Array.from(values).includes(current)) select.value = current;
+    };
+    fill(genreFilter, genres, 'Genre');
+    fill(languageFilter, languages, 'Language');
+    fill(moodFilter, moods, 'Mood');
+    filterHint.style.display = Object.keys(tagsById).length ? 'none' : 'inline';
+  }
+
+  function isFiltering() {
+    return !!(searchInput.value.trim() || genreFilter.value || languageFilter.value || moodFilter.value);
+  }
+
+  function matchesFilters(v) {
+    const q = searchInput.value.trim().toLowerCase();
+    const t = tagsById[v.id] || {};
+    if (q && !v.title.toLowerCase().includes(q)) return false;
+    if (genreFilter.value && t.genre !== genreFilter.value) return false;
+    if (languageFilter.value && t.language !== languageFilter.value) return false;
+    if (moodFilter.value && t.mood !== moodFilter.value) return false;
+    return true;
+  }
+
+  [searchInput, genreFilter, languageFilter, moodFilter].forEach(el => {
+    el.addEventListener('input', render);
+    el.addEventListener('change', render);
+  });
+
+  // ---------- Rendering ----------
   function renderEmptyState() {
     heroSub.textContent = "Your \"Movies\" playlist is already linked — just add a free API key to load it in.";
-    shelvesRoot.innerHTML = '';
+    contentRoot.innerHTML = '';
     const div = document.createElement('div');
     div.className = 'empty-state';
     div.innerHTML = '<strong>Almost there.</strong><br>Your playlist is pre-linked — add your free YouTube Data API key to start watching.<br><button id="emptyStateConnectBtn">Add API key</button>';
-    shelvesRoot.appendChild(div);
+    contentRoot.appendChild(div);
     document.getElementById('emptyStateConnectBtn').addEventListener('click', openSettings);
   }
 
-  function renderShelves(videos) {
-    shelvesRoot.innerHTML = '';
-    if (!videos.length) {
-      shelvesRoot.innerHTML = '<div class="empty-state">No matches found.</div>';
+  function render() {
+    if (!allVideos.length) return;
+    contentRoot.innerHTML = '';
+
+    if (isFiltering()) {
+      const matches = allVideos.filter(matchesFilters);
+      contentRoot.appendChild(buildGridSection(null, matches, true));
       return;
     }
+
+    // Browse mode: shelves grouped by tag, then the full catalog below.
+    const groups = []; // {kind, value, videos}
+    const byKind = { genre: new Map(), language: new Map(), mood: new Map() };
+    allVideos.forEach(v => {
+      const t = tagsById[v.id];
+      if (!t) return;
+      ['genre', 'language', 'mood'].forEach(kind => {
+        if (t[kind]) {
+          if (!byKind[kind].has(t[kind])) byKind[kind].set(t[kind], []);
+          byKind[kind].get(t[kind]).push(v);
+        }
+      });
+    });
+    const kindLabels = { genre: 'Genre', language: 'Language', mood: 'Mood' };
+    ['genre', 'mood', 'language'].forEach(kind => {
+      Array.from(byKind[kind].keys()).sort().forEach(value => {
+        groups.push({ kind, value, videos: byKind[kind].get(value) });
+      });
+    });
+
+    let hasShelves = false;
+    groups.forEach(g => {
+      if (!g.videos.length) return;
+      hasShelves = true;
+      contentRoot.appendChild(buildShelf(kindLabels[g.kind], g.value, g.videos));
+    });
+
+    contentRoot.appendChild(buildGridSection(hasShelves ? 'All movies' : null, allVideos, false));
+  }
+
+  function buildShelf(kindLabel, value, videos) {
     const shelf = document.createElement('div');
     shelf.className = 'shelf';
+    const title = document.createElement('div');
+    title.className = 'shelf-title';
+    title.innerHTML = `${escapeHtml(value)} <span class="shelf-kind">· ${escapeHtml(kindLabel)}</span>`;
     const row = document.createElement('div');
     row.className = 'shelf-row';
     videos.forEach(v => row.appendChild(buildCard(v)));
+    shelf.appendChild(title);
     shelf.appendChild(row);
-    shelvesRoot.appendChild(shelf);
+    return shelf;
+  }
+
+  function buildGridSection(sectionTitleText, videos, isFilteredView) {
+    const wrap = document.createElement('div');
+    if (sectionTitleText) {
+      const h = document.createElement('div');
+      h.className = 'section-title';
+      h.textContent = sectionTitleText;
+      wrap.appendChild(h);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'movie-grid';
+    if (!videos.length) {
+      grid.innerHTML = `<div class="empty-state">${isFilteredView ? 'No matches found.' : 'No movies yet.'}</div>`;
+    } else {
+      videos.forEach(v => grid.appendChild(buildCard(v)));
+    }
+    wrap.appendChild(grid);
+    return wrap;
   }
 
   function buildCard(v) {
     const card = document.createElement('div');
     card.className = 'card';
-    card.tabIndex = 0;
-    card.setAttribute('role', 'button');
-    card.setAttribute('aria-label', 'Play ' + v.title);
+    const tags = tagsById[v.id] || {};
+    const pills = ['genre', 'language', 'mood']
+      .filter(k => tags[k])
+      .map(k => `<span class="tag-pill">${escapeHtml(tags[k])}</span>`)
+      .join('');
+
     card.innerHTML = `
-      <div class="thumb-wrap">
+      <div class="thumb-wrap" tabindex="0" role="button" aria-label="Play ${escapeHtml(v.title)}">
         <img src="${v.thumb}" alt="" loading="lazy">
         <div class="play-badge">
           <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
@@ -102,11 +314,19 @@
           </svg>
         </div>
       </div>
-      <div class="meta"><p class="title">${escapeHtml(v.title)}</p></div>
+      <div class="meta">
+        <div class="title-block">
+          <p class="title">${escapeHtml(v.title)}</p>
+          <div class="tag-pills">${pills}</div>
+        </div>
+        <button class="tag-btn" title="Tag genre / language / mood" aria-label="Tag this movie">🏷</button>
+      </div>
     `;
+    const thumb = card.querySelector('.thumb-wrap');
     const play = () => openPlayer(v);
-    card.addEventListener('click', play);
-    card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(); } });
+    thumb.addEventListener('click', play);
+    thumb.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(); } });
+    card.querySelector('.tag-btn').addEventListener('click', (e) => { e.stopPropagation(); openTagEditor(v); });
     return card;
   }
 
@@ -116,6 +336,7 @@
     return d.innerHTML;
   }
 
+  // ---------- Player ----------
   function openPlayer(v) {
     playerTitle.textContent = v.title;
     playerFrameWrap.innerHTML = `<iframe src="https://www.youtube.com/embed/${v.id}?autoplay=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
@@ -126,17 +347,17 @@
     playerFrameWrap.innerHTML = '';
   }
   closePlayerBtn.addEventListener('click', closePlayer);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && playerOverlay.classList.contains('open')) closePlayer(); });
-
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.trim().toLowerCase();
-    const filtered = q ? allVideos.filter(v => v.title.toLowerCase().includes(q)) : allVideos;
-    renderShelves(filtered);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (playerOverlay.classList.contains('open')) closePlayer();
+      if (tagModal.classList.contains('open')) closeTagEditor();
+    }
   });
 
+  // ---------- Playlist loading ----------
   async function loadPlaylist(apiKey, playlistId) {
     loadingMsg.style.display = 'block';
-    shelvesRoot.innerHTML = '';
+    contentRoot.innerHTML = '';
     lastErrorMessage = '';
     try {
       let items = [];
@@ -168,12 +389,13 @@
 
       loadingMsg.style.display = 'none';
       if (!allVideos.length) {
-        shelvesRoot.innerHTML = '<div class="empty-state">This playlist loaded but has no watchable videos.</div>';
+        contentRoot.innerHTML = '<div class="empty-state">This playlist loaded but has no watchable videos.</div>';
         heroSub.textContent = "Everything below streams straight from your own YouTube playlist.";
         return true;
       }
-      heroSub.textContent = `${allVideos.length} title${allVideos.length === 1 ? '' : 's'} from your playlist — click anything to watch.`;
-      renderShelves(allVideos);
+      heroSub.textContent = `${allVideos.length} title${allVideos.length === 1 ? '' : 's'} from your playlist — organized below, or search to jump straight to one.`;
+      rebuildFilterOptions();
+      render();
       return true;
     } catch (e) {
       loadingMsg.style.display = 'none';
@@ -184,8 +406,9 @@
     }
   }
 
-  // Boot
+  // ---------- Boot ----------
   (function init() {
+    loadTags();
     const key = safeGet('wh_api_key');
     const pid = safeGet('wh_playlist_id') || DEFAULT_PLAYLIST_ID;
     if (key && pid) {

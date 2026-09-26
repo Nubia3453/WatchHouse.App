@@ -78,7 +78,7 @@ header {
 
 /* Hero */
 .hero {
-  padding: 96px 28px 44px;
+  padding: 96px 28px 24px;
   max-width: 760px;
 }
 .hero h1 {
@@ -101,32 +101,85 @@ header {
   max-width: 60ch;
 }
 
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 0 28px 24px;
+}
+.filter-select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+}
+.filter-select:focus { border-color: var(--accent-dim); }
+.filter-hint {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
 main { padding-bottom: 60px; }
 
-.shelf { margin-bottom: 40px; }
+/* ---- Homepage browse mode: horizontal shelves grouped by tag ---- */
+.shelf { margin-bottom: 36px; }
 .shelf-title {
   font-family: 'Fraunces', serif;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
   padding: 0 28px;
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   color: var(--text);
+}
+.shelf-title .shelf-kind {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 0.85rem;
 }
 .shelf-row {
   display: flex;
   gap: 14px;
   overflow-x: auto;
-  padding: 4px 28px 14px;
+  padding: 4px 28px 10px;
   scroll-snap-type: x proximity;
 }
 .shelf-row::-webkit-scrollbar { height: 8px; }
 .shelf-row::-webkit-scrollbar-track { background: transparent; }
 .shelf-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.shelf-row .card { width: 240px; flex: 0 0 auto; scroll-snap-align: start; }
+
+.section-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  padding: 8px 28px 4px;
+  margin: 12px 0 8px;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  padding-top: 28px;
+}
+
+/* ---- Grid mode: filtered results or "All movies" ---- */
+.movie-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+  padding: 4px 28px 20px;
+}
+@media (min-width: 700px) {
+  .movie-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1024px) {
+  .movie-grid { grid-template-columns: repeat(3, 1fr); }
+}
 
 .card {
-  scroll-snap-align: start;
-  flex: 0 0 auto;
-  width: 260px;
   cursor: pointer;
   border-radius: 8px;
   overflow: hidden;
@@ -158,9 +211,10 @@ main { padding-bottom: 60px; }
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 .card:hover .play-badge svg { opacity: 1; transform: scale(1); }
-.card .meta { padding: 11px 12px 13px; }
+.card .meta { padding: 12px 14px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.card .meta .title-block { min-width: 0; }
 .card .meta .title {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 500;
   line-height: 1.35;
   margin: 0;
@@ -169,6 +223,31 @@ main { padding-bottom: 60px; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.card .meta .tag-pills {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.card .meta .tag-pill {
+  font-size: 0.68rem;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+.card .tag-btn {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.card .tag-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
 
 .empty-state {
   margin: 40px 28px;
@@ -177,6 +256,7 @@ main { padding-bottom: 60px; }
   border-radius: 10px;
   color: var(--text-dim);
   max-width: 560px;
+  grid-column: 1 / -1;
 }
 .empty-state strong { color: var(--text); }
 .empty-state button {
@@ -191,7 +271,7 @@ main { padding-bottom: 60px; }
   cursor: pointer;
 }
 
-/* Settings modal */
+/* Modals (settings + tag editor) */
 .modal-backdrop {
   position: fixed; inset: 0;
   background: rgba(10,9,8,0.72);
@@ -208,6 +288,8 @@ main { padding-bottom: 60px; }
   padding: 28px;
   width: 100%;
   max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 .settings-panel h2 {
   font-family: 'Fraunces', serif;
@@ -217,7 +299,7 @@ main { padding-bottom: 60px; }
 .settings-panel .sub { color: var(--text-dim); font-size: 0.85rem; margin: 0 0 20px; line-height: 1.5; }
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 0.82rem; color: var(--text-dim); margin-bottom: 6px; }
-.field input {
+.field input, .field select {
   width: 100%;
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -227,7 +309,7 @@ main { padding-bottom: 60px; }
   font-size: 0.9rem;
   outline: none;
 }
-.field input:focus { border-color: var(--accent-dim); }
+.field input:focus, .field select:focus { border-color: var(--accent-dim); }
 .field .hint { font-size: 0.75rem; color: var(--text-dim); margin-top: 5px; }
 .field .hint a { color: var(--accent); text-decoration: none; }
 .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
@@ -269,8 +351,11 @@ main { padding-bottom: 60px; }
 @media (max-width: 640px) {
   header { padding: 14px 16px; }
   .search-input { width: 130px; }
-  .hero { padding: 76px 16px 32px; }
+  .hero { padding: 76px 16px 20px; }
+  .filter-bar { padding: 0 16px 20px; }
   .shelf-title { padding: 0 16px; }
-  .shelf-row { padding: 4px 16px 14px; }
-  .card { width: 210px; }
+  .shelf-row { padding: 4px 16px 10px; }
+  .section-title { padding: 28px 16px 4px; }
+  .movie-grid { padding: 4px 16px 20px; }
+  .shelf-row .card { width: 200px; }
 }

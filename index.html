@@ -25,9 +25,16 @@
   <p id="heroSub">Everything below streams straight from your own YouTube playlist — click anything to watch it full screen, right here.</p>
 </div>
 
+<div class="filter-bar" id="filterBar">
+  <select class="filter-select" id="genreFilter"><option value="">Genre: All</option></select>
+  <select class="filter-select" id="languageFilter"><option value="">Language: All</option></select>
+  <select class="filter-select" id="moodFilter"><option value="">Mood: All</option></select>
+  <span class="filter-hint" id="filterHint">Tag movies (🏷) to organize your homepage by genre, language or mood.</span>
+</div>
+
 <main id="main">
   <div class="loading-msg" id="loadingMsg" style="display:none;">Loading your playlist…</div>
-  <div id="shelvesRoot"></div>
+  <div id="contentRoot"></div>
 </main>
 
 <!-- Settings modal -->
@@ -50,6 +57,33 @@
       <button class="btn-primary" id="settingsSave">Save & load</button>
     </div>
     <div class="settings-error" id="settingsError">Couldn't load that playlist — double-check the key and ID.</div>
+  </div>
+</div>
+
+<!-- Tag editor modal -->
+<div class="modal-backdrop" id="tagModal">
+  <div class="settings-panel">
+    <h2 id="tagModalTitle">Tag this movie</h2>
+    <p class="sub">Assign a genre, language and mood so it shows up in a homepage row later.</p>
+    <div class="field">
+      <label for="tagGenreSelect">Genre</label>
+      <select id="tagGenreSelect"></select>
+      <input type="text" id="tagGenreCustom" placeholder="Type a genre" style="display:none; margin-top:8px;" />
+    </div>
+    <div class="field">
+      <label for="tagLanguageSelect">Language</label>
+      <select id="tagLanguageSelect"></select>
+      <input type="text" id="tagLanguageCustom" placeholder="Type a language" style="display:none; margin-top:8px;" />
+    </div>
+    <div class="field">
+      <label for="tagMoodSelect">Mood</label>
+      <select id="tagMoodSelect"></select>
+      <input type="text" id="tagMoodCustom" placeholder="Type a mood" style="display:none; margin-top:8px;" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="tagCancel">Cancel</button>
+      <button class="btn-primary" id="tagSave">Save tags</button>
+    </div>
   </div>
 </div>
 

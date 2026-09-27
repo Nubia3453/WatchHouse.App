@@ -37,7 +37,7 @@
   const DEFAULT_PLAYLIST_ID = 'PLhspAmY9B1Rv7c1Xe7nfS0UWcSQ5OW_FT';
 
   const GENRE_OPTIONS = ['Action', 'Comedy', 'Drama', 'Horror', 'Thriller', 'Romance', 'Sci-Fi', 'Documentary', 'Animation', 'Other'];
-  const LANGUAGE_OPTIONS = ['English', 'Hindi', 'Spanish', 'French', 'Korean', 'Japanese', 'Marathi', 'Other'];
+  const LANGUAGE_OPTIONS = ['English', 'Hindi', 'Spanish', 'French', 'Korean', 'Japanese', 'Other'];
   const MOOD_OPTIONS = ['Feel-good', 'Intense', 'Relaxing', 'Thought-provoking', 'Nostalgic', 'Scary', 'Other'];
 
   let allVideos = [];
@@ -232,46 +232,37 @@
       return;
     }
 
-    // Browse mode: shelves grouped by tag, then the full catalog below.
-    const groups = []; // {kind, value, videos}
-    const byKind = { genre: new Map(), language: new Map(), mood: new Map() };
+    // Browse mode: one section each for Genre, Language, Mood — then the full catalog below.
+    const byKind = { genre: [], language: [], mood: [] };
     allVideos.forEach(v => {
       const t = tagsById[v.id];
       if (!t) return;
       ['genre', 'language', 'mood'].forEach(kind => {
-        if (t[kind]) {
-          if (!byKind[kind].has(t[kind])) byKind[kind].set(t[kind], []);
-          byKind[kind].get(t[kind]).push(v);
-        }
+        if (t[kind]) byKind[kind].push(v);
       });
     });
     const kindLabels = { genre: 'Genre', language: 'Language', mood: 'Mood' };
-    ['genre', 'mood', 'language'].forEach(kind => {
-      Array.from(byKind[kind].keys()).sort().forEach(value => {
-        groups.push({ kind, value, videos: byKind[kind].get(value) });
-      });
-    });
 
     let hasShelves = false;
-    groups.forEach(g => {
-      if (!g.videos.length) return;
+    ['genre', 'mood', 'language'].forEach(kind => {
+      if (!byKind[kind].length) return;
       hasShelves = true;
-      contentRoot.appendChild(buildShelf(kindLabels[g.kind], g.value, g.videos));
+      contentRoot.appendChild(buildShelf(kindLabels[kind], byKind[kind]));
     });
 
     contentRoot.appendChild(buildGridSection(hasShelves ? 'All movies' : null, allVideos, false));
   }
 
-  function buildShelf(kindLabel, value, videos) {
+  function buildShelf(title, videos) {
     const shelf = document.createElement('div');
     shelf.className = 'shelf';
-    const title = document.createElement('div');
-    title.className = 'shelf-title';
-    title.innerHTML = `${escapeHtml(value)} <span class="shelf-kind">· ${escapeHtml(kindLabel)}</span>`;
+    const titleEl = document.createElement('div');
+    titleEl.className = 'shelf-title';
+    titleEl.textContent = title;
     const row = document.createElement('div');
     row.className = 'shelf-row';
     videos.forEach(v => row.appendChild(buildCard(v)));
-    shelf.appendChild(title);
+    shelf.appendChild(titleEl);
     shelf.appendChild(row);
     return shelf;
   }
@@ -364,7 +355,21 @@
       let pageToken = '';
       do {
         const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${encodeURIComponent(playlistId)}&key=${encodeURIComponent(apiKey)}${pageToken ? '&pageToken=' + pageToken : ''}`;
-        const res = await fetch(url);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        let res;
+        try {
+          res = await fetch(url, { signal: controller.signal });
+        } catch (fetchErr) {
+          if (fetchErr.name === 'AbortError') {
+            lastErrorMessage = 'Request timed out after 15s — your network may be blocking access to googleapis.com (common on some mobile carriers, VPNs, or restrictive Wi-Fi).';
+          } else {
+            lastErrorMessage = `Network error: ${fetchErr.message || 'the request failed before reaching YouTube.'}`;
+          }
+          throw fetchErr;
+        } finally {
+          clearTimeout(timeoutId);
+        }
         if (!res.ok) {
           let detail = '';
           try {

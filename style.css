@@ -211,6 +211,16 @@ main { padding-bottom: 60px; }
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 .card:hover .play-badge svg { opacity: 1; transform: scale(1); }
+.card .progress-track {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: rgba(255,255,255,0.18);
+}
+.card .progress-fill {
+  height: 100%;
+  background: var(--accent);
+}
 .card .meta { padding: 12px 14px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .card .meta .title-block { min-width: 0; }
 .card .meta .title {

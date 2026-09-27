@@ -42,8 +42,13 @@
 
   let allVideos = [];
   let tagsById = {};
+  let progressById = {};
   let currentTagVideoId = null;
   let lastErrorMessage = '';
+  let ytPlayer = null;
+  let ytApiReadyPromise = null;
+  let progressTimer = null;
+  let currentPlayingVideo = null;
 
   function safeGet(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -56,6 +61,11 @@
     try { tagsById = JSON.parse(safeGet('wh_tags') || '{}'); } catch (e) { tagsById = {}; }
   }
   function saveTags() { safeSet('wh_tags', JSON.stringify(tagsById)); }
+
+  function loadProgress() {
+    try { progressById = JSON.parse(safeGet('wh_progress') || '{}'); } catch (e) { progressById = {}; }
+  }
+  function saveProgress() { safeSet('wh_progress', JSON.stringify(progressById)); }
 
   // ---------- Settings modal ----------
   function openSettings() {
@@ -232,7 +242,18 @@
       return;
     }
 
-    // Browse mode: one section each for Genre, Language, Mood — then the full catalog below.
+    // Browse mode: Continue Watching first, then Genre / Mood / Language, then the full catalog.
+    const continueList = Object.keys(progressById)
+      .map(id => ({ id, p: progressById[id] }))
+      .filter(x => x.p && x.p.fraction > 0.03 && x.p.fraction < 0.95)
+      .sort((a, b) => b.p.updatedAt - a.p.updatedAt)
+      .map(x => allVideos.find(v => v.id === x.id))
+      .filter(Boolean);
+
+    if (continueList.length) {
+      contentRoot.appendChild(buildShelf('Continue Watching', continueList));
+    }
+
     const byKind = { genre: [], language: [], mood: [] };
     allVideos.forEach(v => {
       const t = tagsById[v.id];
@@ -243,7 +264,7 @@
     });
     const kindLabels = { genre: 'Genre', language: 'Language', mood: 'Mood' };
 
-    let hasShelves = false;
+    let hasShelves = continueList.length > 0;
     ['genre', 'mood', 'language'].forEach(kind => {
       if (!byKind[kind].length) return;
       hasShelves = true;
@@ -294,6 +315,11 @@
       .filter(k => tags[k])
       .map(k => `<span class="tag-pill">${escapeHtml(tags[k])}</span>`)
       .join('');
+    const prog = progressById[v.id];
+    const showProgress = prog && prog.fraction > 0.03 && prog.fraction < 0.95;
+    const progressBar = showProgress
+      ? `<div class="progress-track"><div class="progress-fill" style="width:${Math.round(prog.fraction * 100)}%"></div></div>`
+      : '';
 
     card.innerHTML = `
       <div class="thumb-wrap" tabindex="0" role="button" aria-label="Play ${escapeHtml(v.title)}">
@@ -304,6 +330,7 @@
             <path d="M19 15L31 23L19 31V15Z" fill="#F2EDE4"/>
           </svg>
         </div>
+        ${progressBar}
       </div>
       <div class="meta">
         <div class="title-block">
@@ -327,17 +354,81 @@
     return d.innerHTML;
   }
 
-  // ---------- Player ----------
-  function openPlayer(v) {
-    playerTitle.textContent = v.title;
-    playerFrameWrap.innerHTML = `<iframe src="https://www.youtube.com/embed/${v.id}?autoplay=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
-    playerOverlay.classList.add('open');
+  // ---------- Player (YouTube IFrame API, with progress tracking) ----------
+  function loadYouTubeAPI() {
+    if (ytApiReadyPromise) return ytApiReadyPromise;
+    ytApiReadyPromise = new Promise((resolve) => {
+      if (window.YT && window.YT.Player) { resolve(); return; }
+      const prevCallback = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () {
+        if (typeof prevCallback === 'function') prevCallback();
+        resolve();
+      };
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+    });
+    return ytApiReadyPromise;
   }
+
+  function recordProgress() {
+    if (!ytPlayer || !currentPlayingVideo) return;
+    try {
+      const duration = ytPlayer.getDuration();
+      const seconds = ytPlayer.getCurrentTime();
+      if (!duration || isNaN(duration)) return;
+      const fraction = seconds / duration;
+      progressById[currentPlayingVideo.id] = { seconds, duration, fraction, updatedAt: Date.now() };
+      saveProgress();
+    } catch (e) {}
+  }
+
+  function stopProgressTracking() {
+    if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+  }
+
+  async function openPlayer(v) {
+    currentPlayingVideo = v;
+    playerTitle.textContent = v.title;
+    playerOverlay.classList.add('open');
+    playerFrameWrap.innerHTML = '<div id="ytPlayerContainer"></div>';
+
+    await loadYouTubeAPI();
+
+    const saved = progressById[v.id];
+    const startSeconds = (saved && saved.fraction > 0.03 && saved.fraction < 0.95) ? Math.floor(saved.seconds) : 0;
+
+    ytPlayer = new YT.Player('ytPlayerContainer', {
+      videoId: v.id,
+      playerVars: { autoplay: 1, rel: 0, start: startSeconds },
+      events: {
+        onReady: () => { stopProgressTracking(); progressTimer = setInterval(recordProgress, 5000); },
+        onStateChange: (e) => {
+          if (e.data === YT.PlayerState.ENDED) {
+            delete progressById[v.id];
+            saveProgress();
+          } else if (e.data === YT.PlayerState.PAUSED) {
+            recordProgress();
+          }
+        }
+      }
+    });
+  }
+
   function closePlayer() {
+    recordProgress();
+    stopProgressTracking();
     playerOverlay.classList.remove('open');
-    playerFrameWrap.innerHTML = '';
+    if (ytPlayer && typeof ytPlayer.destroy === 'function') {
+      try { ytPlayer.destroy(); } catch (e) {}
+    }
+    ytPlayer = null;
+    currentPlayingVideo = null;
+    playerFrameWrap.innerHTML = '<div id="ytPlayerContainer"></div>';
+    render();
   }
   closePlayerBtn.addEventListener('click', closePlayer);
+  window.addEventListener('beforeunload', recordProgress);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (playerOverlay.classList.contains('open')) closePlayer();
@@ -414,6 +505,7 @@
   // ---------- Boot ----------
   (function init() {
     loadTags();
+    loadProgress();
     const key = safeGet('wh_api_key');
     const pid = safeGet('wh_playlist_id') || DEFAULT_PLAYLIST_ID;
     if (key && pid) {
